@@ -22,3 +22,7 @@ db-migrate-up:
 .PHONY: db-migrate-down
 db-migrate-down:
 	@migrate -path db/migration -database "postgresql://simplebank:simplebank-pass@localhost:5432/simplebank?sslmode=disable" -verbose down
+
+.PHONY: sqlc
+sqlc:
+	@sqlc generate

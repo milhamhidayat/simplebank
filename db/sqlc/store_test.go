@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -21,8 +22,10 @@ func TestTransferTx(t *testing.T) {
 	results := make(chan TransferTxResult)
 
 	for i := 0; i < n; i++ {
+		txName := fmt.Sprintf("tx %d", i+1)
 		go func() {
-			result, err := store.TransferTx(context.TODO(), TransferTxParams{
+			ctx := context.WithValue(context.Background(), txKey, txName)
+			result, err := store.TransferTx(ctx, TransferTxParams{
 				FromAccountID: account1.ID,
 				ToAccountID:   account2.ID,
 				Amount:        amount,
@@ -33,6 +36,7 @@ func TestTransferTx(t *testing.T) {
 		}()
 	}
 
+	existed := make(map[int]bool)
 	for i := 0; i < n; i++ {
 		err := <-errs
 		require.NoError(t, err)
@@ -72,6 +76,46 @@ func TestTransferTx(t *testing.T) {
 		_, err = store.GetEntry(context.TODO(), toEntry.ID)
 		require.NoError(t, err)
 
+		// check accounts
+		fromAccount := result.FromAccount
+		require.NotEmpty(t, fromAccount)
+		require.Equal(t, account1.ID, fromAccount.ID)
+
+		toAccount := result.ToAccount
+		require.NotEmpty(t, fromAccount)
+		require.Equal(t, account2.ID, toAccount.ID)
+
 		// TODO: check accounts balance
+		fmt.Println("++++++++ tx ++++++++")
+		fmt.Printf("%+v\n", fromAccount.Balance)
+		fmt.Printf("%+v\n", toAccount.Balance)
+		fmt.Println("+++++++++++++++++")
+		diff1 := account1.Balance - fromAccount.Balance
+		diff2 := toAccount.Balance - account2.Balance
+		fmt.Println("======== diff balance ========")
+		fmt.Printf("%+v\n", diff1)
+		fmt.Printf("%+v\n", diff2)
+		fmt.Println("=================")
+		require.Equal(t, diff1, diff2)
+		require.True(t, diff1 > 0)
+		require.True(t, diff1%amount == 0)
+
+		k := int(diff1 / amount)
+		require.True(t, k >= 1 && k <= n)
+		require.NotContains(t, existed, k)
+		existed[k] = true
 	}
+
+	updatedAccount1, err := testQueries.GetAccount(context.TODO(), account1.ID)
+	require.NoError(t, err)
+
+	updatedAccount2, err := testQueries.GetAccount(context.TODO(), account2.ID)
+	require.NoError(t, err)
+
+	fmt.Println("======== after ========")
+	fmt.Printf("%+v\n", account1)
+	fmt.Printf("%+v\n", account2)
+	fmt.Println("=================")
+	require.Equal(t, account1.Balance-int64(n)*amount, updatedAccount1.Balance)
+	require.Equal(t, account2.Balance+int64(n)*amount, updatedAccount2.Balance)
 }

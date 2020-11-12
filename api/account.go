@@ -47,6 +47,7 @@ func (s *Server) getAccount(ctx *gin.Context) {
 	err := ctx.ShouldBindUri(&req)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
 	}
 
 	account, err := s.store.GetAccount(ctx, req.ID)
@@ -72,6 +73,7 @@ func (s *Server) listAccounts(ctx *gin.Context) {
 	err := ctx.ShouldBindQuery(&req)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
 	}
 
 	accounts, err := s.store.ListAccounts(ctx, db.ListAccountsParams{
